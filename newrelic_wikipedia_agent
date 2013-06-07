@@ -2,7 +2,7 @@
 require "rubygems"
 require "bundler/setup"
 require "newrelic_plugin"
-require 'open-uri'
+require "net/http"
 
 #
 #
@@ -20,7 +20,7 @@ module WikipediaAgent
   class Agent < NewRelic::Plugin::Agent::Base
 
     agent_guid   "com.newrelic.examples.wikipedia"
-    agent_version "1.0.3"
+    agent_version "1.0.2"
 
     #
     # Each agent class must also include agent_human_labels. agent_human_labels requires:
@@ -40,7 +40,7 @@ module WikipediaAgent
     agent_config_options :hostname
 
     def setup_metrics
-      @wikipedia_url = "http://#{hostname}/w/api.php?action=query&format=json&meta=siteinfo&siprop=statistics"
+      @@WIKIPEDIA_STAT_URL = URI.parse("http://#{hostname}/w/api.php?action=query&format=json&meta=siteinfo&siprop=statistics")
       @article_creation_rate = NewRelic::Processor::EpochCounter.new
     end
 
@@ -57,10 +57,11 @@ module WikipediaAgent
 
     def get_num_articles
       begin
-        data = open(@wikipedia_url, 'User-Agent' => 'Ruby').read
+        resp = ::Net::HTTP.get_response(@@WIKIPEDIA_STAT_URL)
       rescue
         return nil
       end
+      data = resp.body
 
       begin
         result = JSON.parse(data)  # if server unavailable, then data may be html, not json
